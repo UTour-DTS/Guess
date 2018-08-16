@@ -11,6 +11,16 @@ contract GuessEvents {
         uint tID,
         uint amount
         );
+    
+    event NewPrdctEvt(
+        uint rID,
+        uint price,
+        uint maxPlyr,
+        string name, 
+        string nameEn, 
+        string disc, 
+        string discEn
+    );
 
     event WinnersEvt(
         uint blockNumber,
@@ -24,8 +34,12 @@ contract GuessEvents {
         uint256 value
         );
 
-    event DrawEvt(
-        uint indexed blocknumberr,
-        uint number
+    event EndGuessEvt(
+        uint rID,
+        uint minValue, 
+        uint pID,
+        uint tID,
+        address addr,
+        uint timestamp
         );
 }

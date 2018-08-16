@@ -6,7 +6,6 @@ import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 import "./Utils.sol";
 import "./GuessEvents.sol";
 
-
 contract Guess is Ownable, GuessEvents {
     using SafeMath for uint;
 
@@ -21,24 +20,43 @@ contract Guess is Ownable, GuessEvents {
         bool result;
     }
 
+    struct PrdctData {
+        uint price; 
+        uint maxPlyr;
+        uint percent;
+        string name;
+        string nameEn;
+        string disc;
+        string discEn;
+        bool isOver;
+        uint winPrice;
+        uint winPlyr;
+        uint winTeam;
+        address winAddr;
+    }
+
     /* plyr address => plyr ID */
     mapping(address => uint) public plyrIDs;
-    /* rndID => PlyrData */
-    mapping(uint => PlyrData[]) public rndPlyrs;
-    mapping(uint => address) public betNumber;
+    /* product ID => PlyrData */
+    mapping(uint => PlyrData[]) public prdctPlyrs;
 
+    uint private modulus = 10 ** 4;
     uint private unitPrice = 1 finney; // 0.001 ether
+    uint private nonce= 0;
     address[] private plyrs;
+    PrdctData[] private products;
 
     /* Awards Records */
     struct Winner {
-        bool result;
         uint price;
+        uint winPrice;
+        uint pID;
+        uint tID;
+        address addr;
     }
 
-    /* rndID => winner */
+    /* rID => winner */
     mapping(uint => Winner) private winners;
-    mapping(uint => uint) private winResult;
 
     address private wallet1;
     address private wallet2;
@@ -55,30 +73,47 @@ contract Guess is Ownable, GuessEvents {
         _;
     }
 
-    // constructor (address _wallet1, address _wallet2) public {
-    //     wallet1 = _wallet1;
-    //     wallet2 = _wallet2;
+    constructor (address _wallet1, address _wallet2) public {
+        wallet1 = _wallet1;
+        wallet2 = _wallet2;
 
-    //    //
-    //     uint id = plyrs.push(msg.sender) - 1;
-    //     plyrIDs[msg.sender] = id;
-    // }
+        uint id = plyrs.push(msg.sender) - 1;
+        plyrIDs[msg.sender] = id;
+    }
 
-    function getPlyrID() public payable isHuman() returns (uint) {
+    function getPlyrID() public view isHuman() returns (uint) {
         // new player
-        if (plyrIDs[msg.sender] == 0 && plyrs[0] != msg.sender) {
-            uint id = plyrs.push(msg.sender) - 1;
-            plyrIDs[msg.sender] = id;
-        }
         return(plyrIDs[msg.sender]);
     }
 
+    function canJoin(uint _rID) public view isHuman() returns (bool) {
+        for (uint i = 0; i < prdctPlyrs[_rID].length; i++) {
+            if (prdctPlyrs[_rID][i].addr == msg.sender) {
+                return true;
+            }
+        }
+
+        return false;
+    }
     /**
     @dev dapp initialize runtime params when launch
     _unitPrice, _multProduct,
      */
     function getRunParam() public view returns (uint _unitPrice) {
         return(unitPrice);
+    }
+
+    /** 
+    @dev create new product and launch new guess 
+    @param _price price of market selling
+    @param _name  title for product 
+    @param _nameEn title in english
+    */
+    function createProduct(uint _price, uint _maxPlyr, uint _percent, string _name, string _nameEn, string _disc, string _discEn) public payable isHuman() returns(uint) {
+        uint id = products.push(PrdctData(_price, _maxPlyr, _percent, _name, _nameEn, _disc, _discEn, false, 0, 0, 0, address(0))) - 1; 
+       
+        emit NewPrdctEvt(id, _price, _maxPlyr, _name, _nameEn, _disc, _discEn);
+        return id;  
     }
 
     /**
@@ -90,8 +125,15 @@ contract Guess is Ownable, GuessEvents {
     function guess(uint _price, uint _rID, uint _tID) public payable isHuman() returns(uint) {
 
         uint pID = getPlyrID();
-        // for {}
-        // require(rndPlyrs[_rID][pID] == 0);
+
+        if (pID == 0 && plyrs[0] != msg.sender) {
+            pID = plyrs.push(msg.sender) - 1;
+            plyrIDs[msg.sender] = pID;
+        }
+
+        require(msg.value >= unitPrice);
+        require(_price <= products[_rID].price);
+        require(canJoin(_rID));
 
         // save to rnd plyr' list
         PlyrData memory b;
@@ -103,15 +145,19 @@ contract Guess is Ownable, GuessEvents {
         b.value = msg.value;
         // b.result = 0;
 
-        rndPlyrs[_rID].push(b);
+        prdctPlyrs[_rID].push(b);
 
         emit GuessEvt(msg.sender, _price, _rID, _tID, msg.value);
+
+        if (products[_rID].maxPlyr == prdctPlyrs[_rID].length) {
+            endGuess(_rID);
+        }
 
         return pID;
     }
 
     function getPlayerGuessPrices(uint _rID) public view returns (address[], uint[], uint[], uint[], bool[]) {
-        uint _c = rndPlyrs[_rID].length;
+        uint _c = prdctPlyrs[_rID].length;
         uint _i=0;
 
         uint limitRows=100;
@@ -126,65 +172,64 @@ contract Guess is Ownable, GuessEvents {
             return(_addrs, _prices, _tIDs, _pIDs, _res);
         }
 
-        for (_i = 0; _i < rndPlyrs[_rID].length && _i < limitRows; _i++) {
-            _addrs[_i] = rndPlyrs[_rID][_i].addr;
-            _prices[_i] = rndPlyrs[_rID][_i].price;
-            _tIDs[_i] = rndPlyrs[_rID][_i].tID;
-            _pIDs[_i] = rndPlyrs[_rID][_i].pID;
-            _res[_i] = rndPlyrs[_rID][_i].result;
+        for (_i = 0; _i < prdctPlyrs[_rID].length && _i < limitRows; _i++) {
+            _addrs[_i] = prdctPlyrs[_rID][_i].addr;
+            _prices[_i] = prdctPlyrs[_rID][_i].price;
+            _tIDs[_i] = prdctPlyrs[_rID][_i].tID;
+            _pIDs[_i] = prdctPlyrs[_rID][_i].pID;
+            _res[_i] = prdctPlyrs[_rID][_i].result;
         }
 
         return(_addrs, _prices, _tIDs, _pIDs, _res);
     }
 
-    // function draw(uint _blockNumber,uint _blockTimestamp) public onlyOwner returns (uint) {
-    //     require(block.number >= curOpenBNumber + blockInterval);
+    function endGuess(uint _rID) public onlyOwner {
+        require(products[_rID].maxPlyr <= prdctPlyrs[_rID].length);
+        nonce++;
+        uint rand = uint(keccak256(abi.encodePacked(now, msg.sender, nonce))) % modulus;
+        uint winPrice = products[_rID].price.mul(rand).div(modulus);
 
-    //     /*Set open Result*/
-    //     curOpenBNumber=_blockNumber;
-    //     uint result=_blockTimestamp % numberRange;
-    //     winResult[_blockNumber]=result;
+        uint minValue = products[_rID].price;
+        uint winIdx;
+        uint tmpValue;
 
-    //     for(uint _i=0;_i < bets[_blockNumber].length;_i++){
-    //         //result+=1;
+        for(uint _i=0; _i < prdctPlyrs[_rID].length; _i++) {
+            if (winPrice >= prdctPlyrs[_rID][_i].price) {
+                tmpValue = winPrice.sub(prdctPlyrs[_rID][_i].price);
+            }else {
+                tmpValue = prdctPlyrs[_rID][_i].price.sub(winPrice);
+            }
+            
+            if (minValue > tmpValue) {
+                minValue = tmpValue;
+                winIdx = _i;
+            }
+        }
 
+        prdctPlyrs[_rID][winIdx].result = true;
 
-    //         if(bets[_blockNumber][_i].number==result){
-    //             bets[_blockNumber][_i].result = 1;
-    //             bets[_blockNumber][_i].price = bets[_blockNumber][_i].value * odds;
+        products[_rID].winPrice = minValue;
+        products[_rID].winPlyr = prdctPlyrs[_rID][winIdx].pID;
+        products[_rID].winAddr = prdctPlyrs[_rID][winIdx].addr;
+        products[_rID].winTeam = prdctPlyrs[_rID][winIdx].tID;
 
-    //             emit winnersEvt(_blockNumber,bets[_blockNumber][_i].addr,bets[_blockNumber][_i].value,bets[_blockNumber][_i].price);
+        winners[_rID] = Winner(products[_rID].price, 
+                            products[_rID].winPrice,
+                            products[_rID].winPlyr,
+                            products[_rID].winTeam,
+                            products[_rID].winAddr);
 
-    //             withdraw(bets[_blockNumber][_i].addr,bets[_blockNumber][_i].price);
+        emit EndGuessEvt(_rID, minValue, products[_rID].winPlyr, products[_rID].winTeam, products[_rID].winAddr, now);
+    }
 
-    //         }else{
-    //             bets[_blockNumber][_i].result = 0;
-    //             bets[_blockNumber][_i].price = 0;
-    //         }
-    //     }
-
-    //     emit drawEvt(_blockNumber, curOpenBNumber);
-
-    //     return result;
-    // }
-
-    // function getWinners(uint _rID) public view returns(address, uint, uint){
-    //     uint _count=winners[_blockNumber].length;
-
-    //     address[] memory _addresses = new address[](_count);
-    //     uint[] memory _price = new uint[](_count);
-
-    //     uint _i=0;
-    //     for(_i=0;_i<_count;_i++){
-    //         //_addresses[_i] = winners[_blockNumber][_i].addr;
-    //         _price[_i] = winners[_blockNumber][_i].price;
-    //     }
-
-    //     return (_addresses, _price);
-    // }
-
-    function getWinResults(uint _blockNumber) view public returns(uint){
-        return winResult[_blockNumber];
+    function getWinResult(uint _rID) public view returns ( 
+        uint price,
+        uint winPrice,
+        uint pID, 
+        uint tID,
+        address addr)
+    {
+        return (winners[_rID].price, winners[_rID].winPrice, winners[_rID].pID, winners[_rID].tID, winners[_rID].addr);
     }
 
     function withdraw(address _to, uint amount) public onlyOwner returns(bool) {
