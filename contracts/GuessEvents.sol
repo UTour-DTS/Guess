@@ -2,13 +2,13 @@ pragma solidity ^0.4.24;
 
 
 contract GuessEvents {
-    event DrawLog(uint, uint, uint);
+    event DrawLog(uint a, uint b, uint c);
 
     event GuessEvt(
         address indexed playerAddr,
         uint price,
         uint rID,
-        uint tID, 
+        uint tID,
         uint amount
         );
 

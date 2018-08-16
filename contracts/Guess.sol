@@ -7,14 +7,14 @@ import "./Utils.sol";
 import "./GuessEvents.sol";
 
 
-contract GuessEth is Ownable, GuessEvents {
+contract Guess is Ownable, GuessEvents {
     using SafeMath for uint;
 
     /* Player guess */
     struct PlyrData {
-        address addr; // addr 
+        address addr; // addr
         uint price; // price
-        uint rID; // 
+        uint rID; //
         uint tID;
         uint pID;
         uint value;
@@ -29,37 +29,37 @@ contract GuessEth is Ownable, GuessEvents {
 
     uint private unitPrice = 1 finney; // 0.001 ether
     address[] private plyrs;
-    
+
     /* Awards Records */
     struct Winner {
         bool result;
         uint price;
     }
-    
+
     /* rndID => winner */
     mapping(uint => Winner) private winners;
     mapping(uint => uint) private winResult;
-    
+
     address private wallet1;
     address private wallet2;
-   
+
     /**
     * @dev prevents contracts from interacting with fomo3d
     */
     modifier isHuman() {
         address _addr = msg.sender;
         uint256 _codeLength;
-    
+
         assembly {_codeLength := extcodesize(_addr)}
         require(_codeLength == 0, "sorry humans only");
         _;
     }
-    
+
     // constructor (address _wallet1, address _wallet2) public {
     //     wallet1 = _wallet1;
     //     wallet2 = _wallet2;
 
-    //    // 
+    //    //
     //     uint id = plyrs.push(msg.sender) - 1;
     //     plyrIDs[msg.sender] = id;
     // }
@@ -72,10 +72,10 @@ contract GuessEth is Ownable, GuessEvents {
         }
         return(plyrIDs[msg.sender]);
     }
-    
+
     /**
     @dev dapp initialize runtime params when launch
-    _unitPrice, _multProduct, 
+    _unitPrice, _multProduct,
      */
     function getRunParam() public view returns (uint _unitPrice) {
         return(unitPrice);
@@ -88,28 +88,28 @@ contract GuessEth is Ownable, GuessEvents {
     @param _tID team id
      */
     function guess(uint _price, uint _rID, uint _tID) public payable isHuman() returns(uint) {
-       
+
         uint pID = getPlyrID();
         // for {}
         // require(rndPlyrs[_rID][pID] == 0);
 
         // save to rnd plyr' list
         PlyrData memory b;
-            
+
         b.addr = msg.sender;
         b.price = _price;
         b.rID = _rID;
         b.tID = _tID;
         b.value = msg.value;
         // b.result = 0;
-    
+
         rndPlyrs[_rID].push(b);
-        
+
         emit GuessEvt(msg.sender, _price, _rID, _tID, msg.value);
 
         return pID;
     }
-    
+
     function getPlayerGuessPrices(uint _rID) public view returns (address[], uint[], uint[], uint[], bool[]) {
         uint _c = rndPlyrs[_rID].length;
         uint _i=0;
@@ -121,7 +121,7 @@ contract GuessEth is Ownable, GuessEvents {
         uint[] memory _tIDs = new uint[](_c);
         uint[] memory _pIDs=new uint[](_c);
         bool[] memory _res=new bool[](_c);
-        
+
         if (_c <= 0) {
             return(_addrs, _prices, _tIDs, _pIDs, _res);
         }
@@ -147,12 +147,12 @@ contract GuessEth is Ownable, GuessEvents {
 
     //     for(uint _i=0;_i < bets[_blockNumber].length;_i++){
     //         //result+=1;
-            
-            
+
+
     //         if(bets[_blockNumber][_i].number==result){
     //             bets[_blockNumber][_i].result = 1;
     //             bets[_blockNumber][_i].price = bets[_blockNumber][_i].value * odds;
-                
+
     //             emit winnersEvt(_blockNumber,bets[_blockNumber][_i].addr,bets[_blockNumber][_i].value,bets[_blockNumber][_i].price);
 
     //             withdraw(bets[_blockNumber][_i].addr,bets[_blockNumber][_i].price);
@@ -162,18 +162,18 @@ contract GuessEth is Ownable, GuessEvents {
     //             bets[_blockNumber][_i].price = 0;
     //         }
     //     }
-        
+
     //     emit drawEvt(_blockNumber, curOpenBNumber);
-        
+
     //     return result;
     // }
-    
+
     // function getWinners(uint _rID) public view returns(address, uint, uint){
     //     uint _count=winners[_blockNumber].length;
-        
+
     //     address[] memory _addresses = new address[](_count);
     //     uint[] memory _price = new uint[](_count);
-        
+
     //     uint _i=0;
     //     for(_i=0;_i<_count;_i++){
     //         //_addresses[_i] = winners[_blockNumber][_i].addr;
@@ -186,11 +186,11 @@ contract GuessEth is Ownable, GuessEvents {
     function getWinResults(uint _blockNumber) view public returns(uint){
         return winResult[_blockNumber];
     }
-    
+
     function withdraw(address _to, uint amount) public onlyOwner returns(bool) {
         require(address(this).balance.sub(amount) > 0);
         _to.transfer(amount);
-        
+
         emit WithdrawEvt(_to, amount);
         return true;
     }
