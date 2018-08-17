@@ -21,7 +21,7 @@ contract Guess is Ownable, GuessEvents {
     }
 
     struct PrdctData {
-        uint price; 
+        uint price;
         uint maxPlyr;
         uint percent;
         string name;
@@ -73,10 +73,7 @@ contract Guess is Ownable, GuessEvents {
         _;
     }
 
-    constructor (address _wallet1, address _wallet2) public {
-        wallet1 = _wallet1;
-        wallet2 = _wallet2;
-
+    constructor () public {
         uint id = plyrs.push(msg.sender) - 1;
         plyrIDs[msg.sender] = id;
     }
@@ -103,17 +100,17 @@ contract Guess is Ownable, GuessEvents {
         return(unitPrice);
     }
 
-    /** 
-    @dev create new product and launch new guess 
+    /**
+    @dev create new product and launch new guess
     @param _price price of market selling
-    @param _name  title for product 
+    @param _name  title for product
     @param _nameEn title in english
     */
     function createProduct(uint _price, uint _maxPlyr, uint _percent, string _name, string _nameEn, string _disc, string _discEn) public payable isHuman() returns(uint) {
-        uint id = products.push(PrdctData(_price, _maxPlyr, _percent, _name, _nameEn, _disc, _discEn, false, 0, 0, 0, address(0))) - 1; 
-       
+        uint id = products.push(PrdctData(_price, _maxPlyr, _percent, _name, _nameEn, _disc, _discEn, false, 0, 0, 0, address(0))) - 1;
+
         emit NewPrdctEvt(id, _price, _maxPlyr, _name, _nameEn, _disc, _discEn);
-        return id;  
+        return id;
     }
 
     /**
@@ -199,7 +196,7 @@ contract Guess is Ownable, GuessEvents {
             }else {
                 tmpValue = prdctPlyrs[_rID][_i].price.sub(winPrice);
             }
-            
+
             if (minValue > tmpValue) {
                 minValue = tmpValue;
                 winIdx = _i;
@@ -213,7 +210,7 @@ contract Guess is Ownable, GuessEvents {
         products[_rID].winAddr = prdctPlyrs[_rID][winIdx].addr;
         products[_rID].winTeam = prdctPlyrs[_rID][winIdx].tID;
 
-        winners[_rID] = Winner(products[_rID].price, 
+        winners[_rID] = Winner(products[_rID].price,
                             products[_rID].winPrice,
                             products[_rID].winPlyr,
                             products[_rID].winTeam,
@@ -222,10 +219,10 @@ contract Guess is Ownable, GuessEvents {
         emit EndGuessEvt(_rID, minValue, products[_rID].winPlyr, products[_rID].winTeam, products[_rID].winAddr, now);
     }
 
-    function getWinResult(uint _rID) public view returns ( 
+    function getWinResult(uint _rID) public view returns (
         uint price,
         uint winPrice,
-        uint pID, 
+        uint pID,
         uint tID,
         address addr)
     {
