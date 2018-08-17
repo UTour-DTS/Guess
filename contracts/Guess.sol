@@ -106,7 +106,7 @@ contract Guess is Ownable, GuessEvents {
     @param _name  title for product
     @param _nameEn title in english
     */
-    function createProduct(uint _price, uint _maxPlyr, uint _percent, string _name, string _nameEn, string _disc, string _discEn) public payable isHuman() returns(uint) {
+    function createProduct(uint _price, uint _maxPlyr, uint _percent, string _name, string _nameEn, string _disc, string _discEn) public  isHuman() returns(uint) {
         uint id = products.push(PrdctData(_price, _maxPlyr, _percent, _name, _nameEn, _disc, _discEn, false, 0, 0, 0, address(0))) - 1;
 
         emit NewPrdctEvt(id, _price, _maxPlyr, _name, _nameEn, _disc, _discEn);
